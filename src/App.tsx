@@ -3,6 +3,8 @@ import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import { AppProvider, useApp } from "./lib/app";
 import { DEMO_MODE, ROLE_LABEL, supabase, type Role } from "./lib/store";
 import { Audit } from "./pages/Audit";
+import { PlanLibrary } from "./pages/PlanLibrary";
+import { QuickCheck } from "./pages/QuickCheck";
 import { Learning } from "./pages/Learning";
 import { Registration } from "./pages/Registration";
 import { RulesAdmin } from "./pages/RulesAdmin";
@@ -18,7 +20,9 @@ function Shell() {
           <b>Ledgr</b>
           <span>by Aether</span>
         </div>
-        <NavLink to="/" end>Registration check</NavLink>
+        <NavLink to="/" end>Copay check</NavLink>
+        <NavLink to="/plans">Plan library</NavLink>
+        <NavLink to="/detailed">Detailed check</NavLink>
         <NavLink to="/scenarios">Demo scenarios</NavLink>
         <NavLink to="/learn">Learning center</NavLink>
         <NavLink to="/rules">Rule library</NavLink>
@@ -53,7 +57,9 @@ function Shell() {
       <main className="main">
         {demo && <div className="demo-banner" role="status">Demo mode: fictitious patients and hypothetical plan amounts only. Don't enter real patient information.</div>}
         <Routes>
-          <Route path="/" element={<Registration />} />
+          <Route path="/" element={<QuickCheck />} />
+          <Route path="/plans" element={<PlanLibrary />} />
+          <Route path="/detailed" element={<Registration />} />
           <Route path="/scenarios" element={<Scenarios />} />
           <Route path="/learn" element={<Learning />} />
           <Route path="/rules" element={<RulesAdmin />} />

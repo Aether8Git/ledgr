@@ -63,7 +63,7 @@ export function Scenarios() {
                 className="btn small"
                 onClick={() => {
                   loadScenario(s.id);
-                  nav("/");
+                  nav("/detailed");
                 }}
               >
                 Open in registration check

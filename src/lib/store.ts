@@ -169,3 +169,39 @@ export const remoteStore = {
 };
 
 export { uid };
+
+// ─────────────────────────── Plan library ───────────────────────────
+import { SEED_PLANS } from "../data/plans";
+import type { LibraryPlan } from "../engine/quick";
+
+const LS_PLANS = "ledgr.plans.v1";
+
+export const planStore = {
+  async load(): Promise<LibraryPlan[]> {
+    if (!supabase) return readLS<LibraryPlan[]>(LS_PLANS, structuredClone(SEED_PLANS));
+    const { data, error } = await supabase.from("plans").select("*").eq("active", true).order("payer").order("name");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as LibraryPlan[];
+  },
+  async save(p: LibraryPlan, isNew: boolean): Promise<LibraryPlan> {
+    if (!supabase) {
+      const all = readLS<LibraryPlan[]>(LS_PLANS, structuredClone(SEED_PLANS));
+      const next = isNew ? [...all, p] : all.map((x) => (x.id === p.id ? p : x));
+      writeLS(LS_PLANS, next);
+      return p;
+    }
+    const row = { payer: p.payer, name: p.name, kind: p.kind, copays: p.copays, ed_waived_if_admitted: p.ed_waived_if_admitted, notes: p.notes ?? null, medicare_parts: p.medicare_parts ?? null, group_name: p.group_name ?? null, needs_review: !!p.needs_review, example: !!p.example };
+    const q = isNew ? supabase.from("plans").insert(row).select().single() : supabase.from("plans").update(row).eq("id", p.id).select().single();
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return data as LibraryPlan;
+  },
+  async remove(id: string) {
+    if (!supabase) {
+      writeLS(LS_PLANS, readLS<LibraryPlan[]>(LS_PLANS, structuredClone(SEED_PLANS)).filter((x) => x.id !== id));
+      return;
+    }
+    const { error } = await supabase.from("plans").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+};
