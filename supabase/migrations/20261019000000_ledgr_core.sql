@@ -24,8 +24,8 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 
 alter table public.profiles enable row level security;
-create policy "profiles: read own" on public.profiles for select using (id = auth.uid());
-create policy "profiles: admins read all" on public.profiles for select using (current_role_is('rules_admin', 'compliance', 'auditor', 'supervisor'));
+create policy "profiles: read own" on public.profiles for select to authenticated using (id = auth.uid());
+create policy "profiles: admins read all" on public.profiles for select to authenticated using (current_role_is('rules_admin', 'compliance', 'auditor', 'supervisor'));
 -- Role changes are made by an administrator via the service role only (no client update policy).
 
 -- ───────────────────────── Rule library ─────────────────────────
@@ -68,12 +68,12 @@ alter table public.rules enable row level security;
 alter table public.rule_versions enable row level security;
 alter table public.rule_change_requests enable row level security;
 
-create policy "rules: authenticated read" on public.rules for select using (auth.uid() is not null);
-create policy "rule_versions: authenticated read" on public.rule_versions for select using (auth.uid() is not null);
+create policy "rules: authenticated read" on public.rules for select to authenticated using (auth.uid() is not null);
+create policy "rule_versions: authenticated read" on public.rule_versions for select to authenticated using (auth.uid() is not null);
 -- No insert/update/delete policies on rules: changes go only through approve_rule_change().
 
-create policy "changes: read" on public.rule_change_requests for select using (current_role_is('rules_admin','compliance','auditor','supervisor'));
-create policy "changes: propose" on public.rule_change_requests for insert
+create policy "changes: read" on public.rule_change_requests for select to authenticated using (current_role_is('rules_admin','compliance','auditor','supervisor'));
+create policy "changes: propose" on public.rule_change_requests for insert to authenticated
   with check (current_role_is('rules_admin','compliance') and proposed_by = auth.uid() and status = 'pending');
 
 -- Two-person approval. Federal-law rules may not be disabled.
@@ -151,10 +151,10 @@ create table if not exists public.audit_log (
 alter table public.decision_log enable row level security;
 alter table public.audit_log enable row level security;
 
-create policy "decision_log: insert own" on public.decision_log for insert with check (recorded_by = auth.uid());
-create policy "decision_log: read own" on public.decision_log for select using (recorded_by = auth.uid());
-create policy "decision_log: reviewers read" on public.decision_log for select using (current_role_is('supervisor','compliance','auditor'));
-create policy "audit_log: reviewers read" on public.audit_log for select using (current_role_is('supervisor','rules_admin','compliance','auditor'));
+create policy "decision_log: insert own" on public.decision_log for insert to authenticated with check (recorded_by = auth.uid());
+create policy "decision_log: read own" on public.decision_log for select to authenticated using (recorded_by = auth.uid());
+create policy "decision_log: reviewers read" on public.decision_log for select to authenticated using (current_role_is('supervisor','compliance','auditor'));
+create policy "audit_log: reviewers read" on public.audit_log for select to authenticated using (current_role_is('supervisor','rules_admin','compliance','auditor'));
 -- Append-only: no update/delete policies on either log for any role.
 
 -- Mirror decision inserts and change proposals into the audit log.
@@ -179,3 +179,14 @@ create trigger trg_audit_proposal after insert on public.rule_change_requests fo
 -- ───────────────────────── Retention ─────────────────────────
 -- Default retention is set by the facility's records policy. Example (disabled):
 -- select cron.schedule('ledgr-decision-retention', '0 3 * * *', $$delete from decision_log where recorded_at < now() - interval '7 years'$$);
+
+-- ───────────────────────── Function hardening ─────────────────────────
+-- Security-definer functions are callable only by signed-in users; trigger functions are not callable via the API.
+revoke execute on function public.current_role_is(ledgr_role[]) from public, anon;
+revoke execute on function public.approve_rule_change(uuid, text) from public, anon;
+revoke execute on function public.reject_rule_change(uuid, text) from public, anon;
+revoke execute on function public.audit_decision() from public, anon, authenticated;
+revoke execute on function public.audit_proposal() from public, anon, authenticated;
+grant execute on function public.current_role_is(ledgr_role[]) to authenticated;
+grant execute on function public.approve_rule_change(uuid, text) to authenticated;
+grant execute on function public.reject_rule_change(uuid, text) to authenticated;
